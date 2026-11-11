@@ -1,0 +1,949 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tejo Predial</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#0b1720">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&display=swap">
+<style>
+/* Layout: escena de cancha de tejo a pantalla completa · marcador arriba · medidor de lanzamiento abajo · preguntas en tarjeta flotante */
+:root{
+  --noche:#0b1720; --vidrio:rgba(8,18,26,.82); --velo:rgba(5,10,16,.62);
+  --crema:#fff6e3; --crema-2:#f2e4c4; --tinta:#1b130d; --tinta-2:#6b5a49;
+  --texto:#fbf3e4; --texto-2:#c6d2da;
+  --amarillo:#ffc83a; --amarillo-osc:#c48900;
+  --azul:#2f7ff0; --azul-osc:#1550a6;
+  --rojo:#ec4152; --rojo-osc:#a51f2e;
+  --verde:#22b06b; --verde-osc:#127044;
+  --f-juego:"Lilita One","Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+  --f-texto:"Nunito","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;overflow:hidden}
+body{background:var(--noche);color:var(--texto);font-family:var(--f-texto);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--amarillo);outline-offset:3px}
+kbd{font-family:var(--f-texto);font-weight:900;font-size:.82em;background:var(--crema);color:var(--tinta);border-radius:6px;padding:1px 7px;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+
+#juego{position:fixed;inset:0;overflow:hidden;background:var(--noche)}
+#mundo{position:absolute;inset:0}
+#escena,#lienzo{position:absolute;inset:0;width:100%;height:100%;display:block}
+#lienzo{touch-action:manipulation}
+.vineta{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 46%,transparent 55%,rgba(0,0,0,.6) 100%)}
+
+/* ---------- Marcador ---------- */
+.marcador{position:absolute;z-index:5;top:0;left:0;right:0;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:start;gap:12px;
+  padding-top:calc(env(safe-area-inset-top,0px) + 12px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));pointer-events:none}
+.placa{--c:var(--amarillo);--co:var(--amarillo-osc);--ct:var(--tinta);position:relative;display:flex;align-items:center;gap:12px;justify-self:start;max-width:340px;width:100%;
+  padding:8px 10px 8px 14px;border-radius:18px;background:linear-gradient(180deg,var(--c),var(--co));color:var(--ct);
+  box-shadow:0 6px 0 rgba(0,0,0,.4),inset 0 2px 0 rgba(255,255,255,.4);transition:transform .3s,filter .3s;pointer-events:auto}
+.placa.b{--c:var(--azul);--co:var(--azul-osc);--ct:#fff;justify-self:end;flex-direction:row-reverse;padding:8px 14px 8px 10px;text-align:right}
+.placa:not(.activa){filter:saturate(.45) brightness(.7)}
+.placa.activa{transform:translateY(2px) scale(1.04)}
+.placa .info{min-width:0;flex:1}
+.placa .nom{font-family:var(--f-juego);font-size:clamp(14px,1.6vw,20px);line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.placa .sub{font-size:12px;font-weight:800;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.placa .num{font-family:var(--f-juego);font-size:clamp(30px,4.2vw,54px);line-height:1;min-width:2.1ch;text-align:center;padding:4px 10px 6px;border-radius:14px;
+  background:rgba(0,0,0,.28);color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.4);font-variant-numeric:tabular-nums}
+.placa .num.sube{animation:sube .6s cubic-bezier(.2,1.6,.4,1)}
+@keyframes sube{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
+.placa .letoca{position:absolute;bottom:-14px;left:16px;background:var(--crema);color:var(--tinta);font-family:var(--f-juego);font-size:12px;letter-spacing:.06em;padding:3px 10px;border-radius:99px;
+  box-shadow:0 3px 0 rgba(0,0,0,.35);transform:rotate(-3deg);animation:late 1.2s ease-in-out infinite}
+.placa.b .letoca{left:auto;right:16px;transform:rotate(3deg)}
+@keyframes late{50%{transform:rotate(-3deg) scale(1.08)}}
+.centro{display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:auto}
+.mini-logo{font-family:var(--f-juego);font-size:20px;line-height:1;color:var(--amarillo);text-shadow:0 2px 0 var(--rojo-osc),0 4px 0 rgba(0,0,0,.4);white-space:nowrap}
+.ronda{background:var(--vidrio);border:1px solid rgba(255,255,255,.14);border-radius:99px;padding:4px 14px;font-weight:900;font-size:13px;letter-spacing:.08em;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ronda b{color:var(--amarillo)}
+.puntitos{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;max-width:220px}
+.puntitos i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.18)}
+.puntitos i.a{background:var(--amarillo)} .puntitos i.b{background:var(--azul)}
+.puntitos i.x{background:rgba(255,255,255,.45)}
+.puntitos i.ya{outline:2px solid #fff;outline-offset:1px}
+
+/* ---------- Controles ---------- */
+.controles{position:absolute;z-index:6;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 16px);display:flex;gap:8px}
+.ico{width:42px;height:42px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:var(--vidrio);display:grid;place-items:center;color:var(--texto)}
+.ico:hover{background:#16293a}
+.ico svg{width:20px;height:20px}
+
+/* ---------- Medidor ---------- */
+.medidor{position:absolute;z-index:5;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);width:min(560px,calc(100% - 200px));
+  background:var(--vidrio);border:1px solid rgba(255,255,255,.16);border-radius:18px;padding:10px 16px 12px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.med-tit{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
+.med-tit b{font-family:var(--f-juego);font-weight:400;font-size:20px;color:var(--amarillo);letter-spacing:.03em}
+.med-tit span{font-size:13px;font-weight:700;color:var(--texto-2);white-space:nowrap}
+.med-barra{position:relative;height:22px;border-radius:99px;background:linear-gradient(90deg,#3a1d10,#6a3519 30%,#6a3519 70%,#3a1d10);box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
+.med-zona{position:absolute;top:0;bottom:0;border-radius:99px;background:linear-gradient(180deg,#4fe39b,var(--verde));box-shadow:0 0 14px rgba(34,176,107,.7)}
+.med-mecha{position:absolute;top:-6px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:9px solid var(--crema);transform:translateX(-50%)}
+.med-marca{position:absolute;top:-7px;bottom:-7px;width:6px;margin-left:-3px;border-radius:4px;background:#fff;box-shadow:0 0 0 2px var(--tinta),0 0 14px #fff}
+.med-ext{display:flex;justify-content:space-between;font-size:11.5px;font-weight:800;color:var(--texto-2);margin-top:6px;letter-spacing:.06em;text-transform:uppercase}
+
+/* ---------- Banner de turno ---------- */
+.banner{position:absolute;z-index:9;left:0;right:0;top:50%;transform:translateY(-50%);overflow:hidden;cursor:pointer}
+.banner .franja{--c:var(--amarillo);--ct:var(--tinta);background:var(--c);color:var(--ct);padding-block:18px;text-align:center;box-shadow:0 10px 0 rgba(0,0,0,.35);
+  animation:franja 1.6s cubic-bezier(.7,0,.3,1) both;
+  background-image:repeating-linear-gradient(-45deg,rgba(255,255,255,.14) 0 14px,transparent 14px 28px)}
+.banner .franja.b{--c:var(--azul);--ct:#fff}
+.banner small{display:block;font-weight:900;letter-spacing:.3em;font-size:14px;opacity:.85}
+.banner strong{display:block;font-family:var(--f-juego);font-weight:400;font-size:clamp(36px,7vw,84px);line-height:1.05;padding-inline:16px;text-wrap:balance}
+@keyframes franja{0%{transform:translateX(-105%) skewX(-12deg)}22%{transform:translateX(0) skewX(0)}78%{transform:translateX(0)}100%{transform:translateX(105%) skewX(12deg)}}
+
+/* ---------- Pop de resultado ---------- */
+.pop{position:absolute;z-index:7;left:50%;top:40%;transform:translate(-50%,-50%);pointer-events:none;display:grid;place-items:center;width:min(720px,100%);opacity:0}
+.pop .rayos{position:absolute;width:520px;height:520px;max-width:120vw;border-radius:50%;
+  background:repeating-conic-gradient(rgba(255,200,58,.4) 0 9deg,transparent 9deg 22deg);
+  -webkit-mask:radial-gradient(circle,#000 18%,transparent 68%);mask:radial-gradient(circle,#000 18%,transparent 68%);animation:gira 6s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}
+.pop .t{position:relative;font-family:var(--f-juego);font-size:clamp(52px,10vw,124px);line-height:1;color:var(--amarillo);text-align:center;
+  -webkit-text-stroke:3px var(--tinta);paint-order:stroke fill;text-shadow:0 6px 0 var(--rojo-osc),0 12px 0 rgba(0,0,0,.45)}
+.pop .s{position:relative;margin-top:10px;font-family:var(--f-juego);font-size:clamp(20px,3vw,32px);color:#fff;background:var(--rojo);padding:4px 18px;border-radius:99px;box-shadow:0 4px 0 var(--rojo-osc)}
+.pop.cero .t{color:var(--crema);text-shadow:0 6px 0 #5a4636,0 12px 0 rgba(0,0,0,.45)}
+.pop.cero .s{background:#5a4636;box-shadow:0 4px 0 #3a2c20}
+.pop.anim{animation:popin 2s cubic-bezier(.2,1.5,.35,1) both}
+@keyframes popin{0%{opacity:0;transform:translate(-50%,-50%) scale(.2) rotate(-10deg)}16%{opacity:1;transform:translate(-50%,-50%) scale(1.1) rotate(-4deg)}28%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(-4deg)}82%{opacity:1}100%{opacity:0;transform:translate(-50%,-62%) scale(.95) rotate(-4deg)}}
+
+/* ---------- Capas ---------- */
+.capa{position:absolute;inset:0;z-index:20;display:grid;place-items:center;overflow:auto;background:var(--velo);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
+  padding-block:calc(env(safe-area-inset-top,0px) + 16px) calc(env(safe-area-inset-bottom,0px) + 16px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.entra{animation:entra .45s cubic-bezier(.2,1.3,.4,1) both}
+@keyframes entra{from{opacity:0;transform:translateY(30px) scale(.94)}}
+
+/* Tarjeta de pregunta */
+.tq{--c:var(--amarillo);--co:var(--amarillo-osc);--ct:var(--tinta);width:100%;max-width:880px;background:var(--crema);color:var(--tinta);border-radius:26px;overflow:hidden;box-shadow:0 14px 0 rgba(0,0,0,.35),0 30px 60px rgba(0,0,0,.45)}
+.tq.b{--c:var(--azul);--co:var(--azul-osc);--ct:#fff}
+.tq-cab{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;color:var(--ct);padding:14px 22px;
+  background:repeating-linear-gradient(-45deg,rgba(255,255,255,.1) 0 12px,transparent 12px 24px),linear-gradient(180deg,var(--c),var(--co))}
+.tq-num{font-family:var(--f-juego);font-size:clamp(22px,2.6vw,30px);line-height:1}
+.tq-eq{font-weight:900;font-size:14px;background:rgba(0,0,0,.2);padding:4px 12px;border-radius:99px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tq-diap{margin-left:auto;font-weight:900;font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.9;white-space:nowrap}
+.tq-cuerpo{padding:18px 22px 22px;display:flex;flex-direction:column;gap:16px}
+.reloj{display:flex;align-items:center;gap:10px}
+.reloj-barra{flex:1;height:12px;border-radius:99px;background:var(--crema-2);overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.15)}
+.reloj-fill{height:100%;width:100%;border-radius:99px;background:var(--verde);transform-origin:left}
+.reloj-num{font-family:var(--f-juego);font-size:22px;min-width:2ch;text-align:right;font-variant-numeric:tabular-nums}
+.reloj.urge .reloj-num{color:var(--rojo)}
+.tq-preg{font-family:var(--f-texto);font-weight:900;font-size:clamp(20px,2.3vw,28px);line-height:1.22;margin:0;text-wrap:balance}
+.ops{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.op{--oc:var(--amarillo);--oo:var(--amarillo-osc);--ot:var(--tinta);display:flex;align-items:center;gap:12px;text-align:left;border:0;border-radius:16px;padding:14px 16px;min-height:72px;
+  background:var(--oc);color:var(--ot);font-weight:800;font-size:16px;line-height:1.28;box-shadow:0 6px 0 var(--oo);transition:transform .1s,box-shadow .1s,opacity .25s,filter .25s}
+.op:nth-child(2){--oc:var(--azul);--oo:var(--azul-osc);--ot:#fff}
+.op:nth-child(3){--oc:var(--rojo);--oo:var(--rojo-osc);--ot:#fff}
+.op:nth-child(4){--oc:var(--verde);--oo:var(--verde-osc);--ot:#fff}
+.op:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 0 var(--oo)}
+.op:active:not(:disabled){transform:translateY(5px);box-shadow:0 1px 0 var(--oo)}
+.op:disabled{cursor:default}
+.op .k{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:rgba(0,0,0,.22);font-family:var(--f-juego);font-size:18px;color:#fff}
+.op .txt{min-width:0}
+.op.fuera{opacity:.18;filter:grayscale(1)}
+.op.apaga{opacity:.3;filter:grayscale(.6)}
+.op.bien{outline:4px solid var(--verde-osc);outline-offset:3px;animation:brilla .9s ease-in-out 2}
+.op.bien .k{background:#fff;color:var(--verde-osc)}
+.op.mal{animation:tiembla .4s}
+.op.mal .k{background:var(--tinta)}
+@keyframes brilla{50%{transform:scale(1.03)}}
+@keyframes tiembla{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.tq-pie{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between}
+.comodin{display:inline-flex;align-items:center;gap:8px;border:2.5px dashed var(--tinta-2);background:transparent;border-radius:99px;padding:7px 16px;font-weight:900;font-size:14px;color:var(--tinta)}
+.comodin svg{width:18px;height:18px}
+.comodin:hover:not(:disabled){border-style:solid;background:var(--crema-2)}
+.comodin:disabled{opacity:.4;cursor:not-allowed}
+.teclas{font-size:13px;font-weight:700;color:var(--tinta-2)}
+.retro{border-radius:18px;padding:14px 16px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;align-items:start}
+.retro.ok{background:#dcf3e5;box-shadow:inset 0 0 0 2.5px var(--verde)}
+.retro.no{background:#fde0e3;box-shadow:inset 0 0 0 2.5px var(--rojo)}
+.retro .sello{grid-row:span 2;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-juego);font-size:28px;color:#fff}
+.retro.ok .sello{background:var(--verde)} .retro.no .sello{background:var(--rojo)}
+.retro h3{margin:0;font-family:var(--f-juego);font-weight:400;font-size:24px;line-height:1.1}
+.retro p{margin:0;font-size:15px;font-weight:600}
+.retro p b{font-weight:900}
+
+/* Botón principal */
+.boton{display:inline-flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:18px;padding:14px 26px;background:linear-gradient(180deg,#ff5a6a,var(--rojo));color:#fff;
+  font-family:var(--f-juego);font-size:clamp(20px,2.2vw,26px);letter-spacing:.02em;box-shadow:0 7px 0 var(--rojo-osc),0 12px 22px rgba(0,0,0,.3);text-shadow:0 2px 0 rgba(0,0,0,.25);transition:transform .1s,box-shadow .1s}
+.boton:hover{transform:translateY(-2px);box-shadow:0 9px 0 var(--rojo-osc),0 14px 24px rgba(0,0,0,.3)}
+.boton:active{transform:translateY(6px);box-shadow:0 1px 0 var(--rojo-osc)}
+.boton small{font-family:var(--f-texto);font-weight:800;font-size:12px;opacity:.85;background:rgba(0,0,0,.2);border-radius:6px;padding:2px 6px;text-shadow:none}
+.boton.verde{background:linear-gradient(180deg,#3fd28a,var(--verde));box-shadow:0 7px 0 var(--verde-osc),0 12px 22px rgba(0,0,0,.3)}
+.boton.verde:hover{box-shadow:0 9px 0 var(--verde-osc),0 14px 24px rgba(0,0,0,.3)}
+.boton.verde:active{box-shadow:0 1px 0 var(--verde-osc)}
+.boton.sec{background:linear-gradient(180deg,#fff,var(--crema-2));color:var(--tinta);box-shadow:0 7px 0 #b9a882;text-shadow:none}
+.boton.ancho{width:100%}
+
+/* Resultado del tiro */
+.tres{position:absolute;z-index:8;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 20px);width:min(360px,calc(100% - 32px));
+  background:var(--crema);color:var(--tinta);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 0 rgba(0,0,0,.35),0 24px 40px rgba(0,0,0,.4)}
+.tres .boton{font-size:21px;white-space:nowrap;padding-inline:16px}
+.tres h3{margin:0;font-family:var(--f-juego);font-weight:400;font-size:34px;line-height:1;color:var(--rojo)}
+.tres h3.cero{color:var(--tinta-2)}
+.tres p{margin:0;font-weight:700;font-size:14.5px}
+.cuentas{display:grid;grid-template-columns:1fr auto;gap:4px 12px;margin:0;font-weight:800;font-size:14.5px;padding:10px 12px;background:var(--crema-2);border-radius:12px}
+.cuentas dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.cuentas .tot{font-family:var(--f-juego);font-weight:400;font-size:20px;padding-top:4px;border-top:2px dashed #cdb98d}
+.recuerda{font-size:13.5px;font-weight:600;line-height:1.38;border-left:4px solid var(--amarillo);padding-left:10px}
+.recuerda b{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--tinta-2);font-weight:900}
+
+/* Inicio */
+.inicio{width:100%;max-width:1040px;display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:center}
+.logo{text-align:center;display:flex;flex-direction:column;align-items:center}
+.logo svg{width:min(220px,46vw);height:auto;filter:drop-shadow(0 10px 0 rgba(0,0,0,.35))}
+.logo .l1{font-family:var(--f-juego);font-size:clamp(76px,12vw,150px);line-height:.85;color:var(--amarillo);-webkit-text-stroke:5px var(--tinta);paint-order:stroke fill;
+  text-shadow:0 8px 0 var(--rojo-osc),0 16px 0 rgba(0,0,0,.4);margin-top:-6px}
+.logo .l2{font-family:var(--f-juego);font-size:clamp(30px,4.6vw,56px);line-height:1;color:#fff;background:var(--rojo);padding:4px 26px 8px;border-radius:12px;transform:rotate(-3deg);margin-top:10px;
+  box-shadow:0 6px 0 var(--rojo-osc);text-shadow:0 3px 0 rgba(0,0,0,.25)}
+.logo p{margin:18px 0 0;font-weight:800;font-size:17px;color:var(--texto);max-width:36ch;text-shadow:0 2px 6px rgba(0,0,0,.6)}
+.pasos-ini{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center}
+.pasos-ini div{background:var(--vidrio);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:8px 12px;font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px}
+.pasos-ini b{font-family:var(--f-juego);font-weight:400;color:var(--amarillo);font-size:20px}
+.form{background:var(--crema);color:var(--tinta);border-radius:26px;padding:22px;display:flex;flex-direction:column;gap:16px;box-shadow:0 12px 0 rgba(0,0,0,.35)}
+.form h2{margin:0;font-family:var(--f-juego);font-weight:400;font-size:28px;line-height:1.1}
+.campo{display:flex;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:6px 6px 6px 12px;box-shadow:inset 0 0 0 2px #e3d3ae}
+.campo:focus-within{box-shadow:inset 0 0 0 2.5px var(--tinta)}
+.campo .chapa{flex:none;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-family:var(--f-juego);color:var(--tinta);background:var(--amarillo)}
+.campo .chapa.b{background:var(--azul);color:#fff}
+.campo input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-weight:800;font-size:17px;color:var(--tinta);padding:8px 4px;outline:none}
+.grupo{display:flex;flex-direction:column;gap:6px}
+.grupo>span{font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:900;color:var(--tinta-2)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg label{cursor:pointer;position:relative}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:block;border-radius:12px;padding:8px 14px;font-weight:900;font-size:14px;background:#fff;box-shadow:inset 0 0 0 2px #e3d3ae}
+.seg input:checked+span{background:var(--tinta);color:var(--crema);box-shadow:none}
+.seg input:focus-visible+span{outline:3px solid var(--amarillo);outline-offset:2px}
+.fichas{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.ficha{background:#fff;border-radius:12px;padding:6px 4px;text-align:center;box-shadow:inset 0 0 0 2px #e3d3ae}
+.ficha b{display:block;font-family:var(--f-juego);font-weight:400;font-size:24px;line-height:1.1;color:var(--rojo)}
+.ficha span{font-size:11px;font-weight:900}
+
+/* Fin */
+.fin{width:100%;max-width:820px;background:var(--crema);color:var(--tinta);border-radius:28px;overflow:hidden;box-shadow:0 14px 0 rgba(0,0,0,.35)}
+.fin-cab{text-align:center;padding:22px 20px 18px;background:radial-gradient(ellipse at 50% 120%,#2b6a63,#143b38);color:#fff}
+.fin-cab small{font-weight:900;letter-spacing:.3em;font-size:13px;color:var(--amarillo)}
+.fin-cab h2{margin:4px 0 0;font-family:var(--f-juego);font-weight:400;font-size:clamp(40px,7vw,72px);line-height:1;color:var(--amarillo);-webkit-text-stroke:3px var(--tinta);paint-order:stroke fill;text-shadow:0 6px 0 var(--rojo-osc);text-wrap:balance}
+.fin-cuerpo{padding:20px;display:flex;flex-direction:column;gap:16px}
+.podio{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pod{--c:var(--amarillo);--co:var(--amarillo-osc);--ct:var(--tinta);border-radius:18px;padding:14px 16px;background:linear-gradient(180deg,var(--c),var(--co));color:var(--ct);box-shadow:0 6px 0 rgba(0,0,0,.25);position:relative;min-width:0}
+.pod.b{--c:var(--azul);--co:var(--azul-osc);--ct:#fff}
+.pod.pierde{filter:saturate(.5) brightness(.85)}
+.pod .corona{position:absolute;top:-14px;right:14px;font-family:var(--f-juego);background:var(--crema);color:var(--tinta);padding:3px 12px;border-radius:99px;box-shadow:0 3px 0 rgba(0,0,0,.3);transform:rotate(4deg)}
+.pod .n{font-family:var(--f-juego);font-size:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pod .p{font-family:var(--f-juego);font-size:56px;line-height:1}
+.pod .st{font-size:13px;font-weight:800;display:flex;gap:4px 12px;flex-wrap:wrap;opacity:.9}
+.repaso{max-height:min(280px,34vh);overflow:auto;border-radius:16px;background:#fff;box-shadow:inset 0 0 0 2px #e3d3ae}
+.repaso ol{list-style:none;margin:0;padding:0}
+.repaso li{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;padding:10px 14px;border-bottom:1px solid #eadcb9;font-size:13.5px}
+.repaso li:last-child{border-bottom:0}
+.repaso .m{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:900}
+.repaso .si{background:var(--verde)} .repaso .nn{background:var(--rojo)}
+.repaso .rq{font-weight:800}
+.repaso .ra{color:var(--tinta-2);font-weight:600}
+.tit{font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:900;color:var(--tinta-2);margin:0 0 6px}
+.botones{display:flex;gap:12px;flex-wrap:wrap}
+.botones .boton{flex:1 1 200px}
+
+/* Responsive */
+@media (max-width:860px){.inicio{grid-template-columns:1fr;gap:18px}}
+@media (max-width:640px){.ops{grid-template-columns:1fr}}
+@media (max-width:520px){.podio{grid-template-columns:1fr}.fichas{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:760px){
+  .marcador{gap:8px}
+  .mini-logo{display:none}
+  .placa{padding:6px 8px 6px 10px;gap:8px;border-radius:14px}
+  .placa.b{padding:6px 10px 6px 8px}
+  .placa .sub{display:none}
+  .placa .num{font-size:28px;padding:3px 8px 5px}
+  .puntitos{max-width:120px}
+  .puntitos i{width:7px;height:7px}
+  .medidor{width:calc(100% - 32px);bottom:calc(env(safe-area-inset-bottom,0px) + 70px)}
+  .controles{bottom:calc(env(safe-area-inset-bottom,0px) + 12px)}
+  .tres{right:16px;left:16px;width:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 12px)}
+  .tq-cuerpo{padding:16px}
+  .op{min-height:58px;font-size:15px}
+}
+.tactil .teclas,.tactil .boton small{display:none}
+.tactil .op:hover:not(:disabled){transform:none;box-shadow:0 6px 0 var(--oo)}
+@media (max-width:420px){ .placa .nom{font-size:13px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.05} .ronda{font-size:11px;padding:3px 10px} }
+@media (prefers-reduced-motion: reduce){
+  .banner .franja,.entra,.placa .letoca,.pop .rayos,.op.bien,.op.mal{animation:none}
+  .pop.anim{animation:popfijo 2s both}
+  @keyframes popfijo{0%,85%{opacity:1}100%{opacity:0}}
+}
+</style>
+
+<div id="juego">
+  <div id="mundo">
+    <svg id="escena" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" aria-hidden="true"></svg>
+    <canvas id="lienzo" aria-label="Cancha de tejo con bocín y cuatro mechas" role="img"></canvas>
+  </div>
+  <div class="vineta" aria-hidden="true"></div>
+
+  <header class="marcador" id="marcador" hidden>
+    <div class="placa a" id="placa0"></div>
+    <div class="centro">
+      <div class="mini-logo">Tejo Predial</div>
+      <div class="ronda" id="ronda"></div>
+      <div class="puntitos" id="puntitos"></div>
+    </div>
+    <div class="placa b" id="placa1"></div>
+  </header>
+
+  <div class="controles">
+    <button class="ico" id="btnSonido" type="button" aria-label="Silenciar sonido" title="Sonido"></button>
+    <button class="ico" id="btnPantalla" type="button" aria-label="Pantalla completa" title="Pantalla completa">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+    </button>
+    <button class="ico" id="btnMenu" type="button" aria-label="Nueva partida" title="Nueva partida">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/></svg>
+    </button>
+  </div>
+
+  <div class="medidor" id="medidor" hidden>
+    <div class="med-tit"><b id="medTit">Dirección</b><span id="medAyuda">Toca la cancha o <kbd>Espacio</kbd></span></div>
+    <div class="med-barra">
+      <div class="med-zona" id="medZona"></div>
+      <div class="med-mecha" id="medM1"></div><div class="med-mecha" id="medM2"></div>
+      <div class="med-marca" id="medMarca"></div>
+    </div>
+    <div class="med-ext"><span id="medIzq">Izquierda</span><span>Bocín</span><span id="medDer">Derecha</span></div>
+  </div>
+
+  <div class="banner" id="banner" hidden></div>
+  <div class="pop" id="pop" aria-live="assertive"></div>
+  <div class="tres" id="tres" hidden aria-live="polite"></div>
+
+  <div class="capa" id="capaPregunta" hidden></div>
+
+  <div class="capa" id="capaInicio">
+    <div class="inicio entra">
+      <div class="logo">
+        <svg viewBox="0 0 240 150" aria-hidden="true">
+          <defs>
+            <linearGradient id="lgG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a4424"/><stop offset="1" stop-color="#c8703d"/></linearGradient>
+            <linearGradient id="lgM" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".55" stop-color="#8f98a0"/><stop offset="1" stop-color="#3f464d"/></linearGradient>
+          </defs>
+          <path d="M28 20h184l18 118H10z" fill="#6d421f"/>
+          <path d="M40 28h160l14 102H26z" fill="url(#lgG)"/>
+          <ellipse cx="120" cy="80" rx="40" ry="24" fill="#1d0f07"/>
+          <ellipse cx="120" cy="80" rx="40" ry="24" fill="none" stroke="url(#lgM)" stroke-width="7"/>
+          <g fill="#fffaf0" stroke="#7a5a3a" stroke-width="1.5"><path d="M70 86h20l-10-20z"/><path d="M150 86h20l-10-20z"/><path d="M110 62h20l-10-20z"/></g>
+          <g fill="#ec4152"><path d="M77 72h6l-3-6z"/><path d="M157 72h6l-3-6z"/><path d="M117 48h6l-3-6z"/></g>
+          <ellipse cx="168" cy="122" rx="30" ry="12" fill="#23272c"/>
+          <ellipse cx="168" cy="117" rx="30" ry="12" fill="url(#lgM)" stroke="#ffc83a" stroke-width="3"/>
+        </svg>
+        <div class="l1">TEJO</div>
+        <div class="l2">PREDIAL</div>
+        <p>El juego del Impuesto Predial Unificado. Responda bien, lance el tejo y reviente la mecha.</p>
+        <div class="pasos-ini">
+          <div><b>1</b>Responda</div>
+          <div><b>2</b>Apunte</div>
+          <div><b>3</b>¡Mecha!</div>
+        </div>
+      </div>
+      <div class="form" id="formInicio">
+        <h2>Arme los equipos</h2>
+        <div class="campo"><span class="chapa">1</span><input id="nomA" maxlength="20" value="Los del Bocín" aria-label="Nombre del equipo 1"></div>
+        <div class="campo"><span class="chapa b">2</span><input id="nomB" maxlength="20" value="Los de la Mecha" aria-label="Nombre del equipo 2"></div>
+        <div class="grupo"><span>Turnos</span>
+          <div class="seg">
+            <label><input type="radio" name="turnos" id="t8" value="8"><span>8 · Rápida</span></label>
+            <label><input type="radio" name="turnos" id="t12" value="12" checked><span>12 · Normal</span></label>
+            <label><input type="radio" name="turnos" id="t20" value="20"><span>20 · Larga</span></label>
+          </div>
+        </div>
+        <div class="grupo"><span>Tiempo para responder</span>
+          <div class="seg">
+            <label><input type="radio" name="tiempo" id="s20" value="20"><span>20 s</span></label>
+            <label><input type="radio" name="tiempo" id="s30" value="30" checked><span>30 s</span></label>
+            <label><input type="radio" name="tiempo" id="s0" value="0"><span>Sin tiempo</span></label>
+          </div>
+        </div>
+        <div class="grupo"><span>Puntos</span>
+          <div class="fichas">
+            <div class="ficha"><b>+1</b><span>Acierto</span></div>
+            <div class="ficha"><b>1</b><span>Mano</span></div>
+            <div class="ficha"><b>3</b><span>Mecha</span></div>
+            <div class="ficha"><b>6</b><span>Embocinada</span></div>
+            <div class="ficha"><b>9</b><span>Moñona</span></div>
+          </div>
+        </div>
+        <button class="boton ancho" id="btnJugar" type="button">¡A JUGAR!</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="capa" id="capaFin" hidden></div>
+</div>
+
+<script>
+(() => {
+/* ============ PREGUNTAS (tomadas de la presentación) ============ */
+const PREGUNTAS = [
+ {q:"¿Por qué el impuesto predial se llama “unificado”?", o:["Porque reúne cuatro tributos en un solo pago","Porque es igual en todos los municipios","Porque lo cobran juntos la Nación y el municipio","Porque se paga en una sola cuota al año"], why:"La Ley 44 de 1990 juntó el predial tradicional, parques y arborización, estratificación socioeconómica y la sobretasa de levantamiento catastral.", ref:2},
+ {q:"¿Quién tiene la facultad de cobrar el impuesto predial?", o:["Los municipios y distritos","La DIAN","Las gobernaciones","El IGAC"], why:"Según el art. 317 de la Constitución, solo los municipios y distritos pueden gravar la propiedad inmueble.", ref:2},
+ {q:"El predial es un impuesto “real”. ¿Qué quiere decir eso?", o:["Que recae sobre el inmueble, sin importar quién sea el dueño","Que se paga en efectivo","Que solo lo pagan inmuebles con escritura","Que se ajusta con la inflación"], why:"Se cobra con el predio. Si compras un inmueble con deudas de predial, puedes terminar pagándolas.", ref:2},
+ {q:"¿En qué fecha se causa el impuesto predial cada año?", o:["El 1 de enero","El 17 de abril","El 31 de diciembre","El día que llega la factura"], why:"Es periódico: se causa el 1 de enero y la base es el avalúo vigente a esa fecha.", ref:2},
+ {q:"¿Cuál es el hecho generador del predial?", o:["La propiedad, posesión o usufructo de un inmueble","Comprar o vender un inmueble","Recibir arriendo por un inmueble","Construir en un lote"], why:"Basta con tener el predio en el municipio, aunque no genere ingresos y aunque esté deshabitado.", ref:3},
+ {q:"Doña Rosa tiene una finca deshabitada que no le produce ni un peso. ¿Debe pagar predial?", o:["Sí, se grava la propiedad aunque no genere ingresos","No, porque no produce ingresos","No, porque nadie vive ahí","Solo si la arrienda"], why:"El hecho generador es tener el predio. Que esté vacío o no produzca no cambia nada.", ref:3},
+ {q:"Andrés vive en arriendo y su contrato dice que él paga el predial. Ante el municipio, ¿quién es el sujeto pasivo?", o:["El propietario del inmueble","Andrés, porque así lo firmó","Los dos por partes iguales","La inmobiliaria"], why:"El arrendatario no es sujeto pasivo. Lo que pacten entre ellos es privado; ante el municipio responde el propietario.", ref:5},
+ {q:"Un predio tiene propietario y además un poseedor. ¿A quién le puede cobrar el municipio?", o:["A cualquiera de los dos: son deudores solidarios","Solo al propietario","Solo al poseedor","A ninguno hasta que un juez decida"], why:"Propietario y poseedor son deudores solidarios (Consejo de Estado, sentencia 19420 de 2013).", ref:5},
+ {q:"Un apartamento está en leasing. ¿Quién es el sujeto pasivo del predial?", o:["La entidad financiera que es arrendadora","La persona que usa el apartamento","La constructora","Nadie, mientras dure el leasing"], why:"En inmuebles en leasing, el sujeto pasivo es la entidad financiera que conserva la calidad de arrendadora.", ref:5},
+ {q:"¿Cuál es la base gravable del predial?", o:["El avalúo catastral vigente al 1 de enero","El precio en que se compró el inmueble","El valor comercial que diga un corredor","El valor del arriendo mensual"], why:"Art. 3 de la Ley 44 de 1990. Es un mínimo: se puede declarar un valor mayor, nunca menor.", ref:6},
+ {q:"Al declarar, ¿puedes usar una base menor que el avalúo catastral?", o:["No: el avalúo es el mínimo","Sí, si crees que el inmueble vale menos","Sí, hasta un 20% menos","Sí, si eres estrato 1 o 2"], why:"El avalúo es el piso. Si te parece injusto, lo que procede es pedir la revisión del avalúo ante Catastro.", ref:6},
+ {q:"En Bogotá, ¿qué entidad fija el avalúo catastral?", o:["La UAE de Catastro Distrital","La Secretaría de Hacienda","El Concejo de Bogotá","La Superintendencia de Notariado"], why:"En Bogotá lo hace la UAE de Catastro Distrital; en buena parte del país, el IGAC o el gestor catastral.", ref:6},
+ {q:"¿Quién fija la tarifa del predial en cada municipio?", o:["El Concejo municipal o distrital","El alcalde por decreto","El Congreso, igual para todo el país","El Catastro"], why:"El Concejo la adopta dentro de los límites del art. 4 de la Ley 44 de 1990, modificado por la Ley 1450 de 2011.", ref:6},
+ {q:"¿Qué significa una tarifa de 5 por mil (5‰)?", o:["$5 por cada $1.000 de avalúo (0,5%)","5% del avalúo","$5 por cada $100 de avalúo","$5.000 fijos al año"], why:"Por mil es dividir entre 1.000: 5‰ = 0,005 = 0,5% del avalúo.", ref:6},
+ {q:"¿Cuál es el rango general de tarifas que permite la ley?", o:["Entre 5 y 16 por mil","Entre 1 y 5 por mil","Entre 16 y 33 por mil","Entre 10 y 50 por mil"], why:"El rango general va de 5 a 16 por mil; los lotes sin urbanizar o sin edificar pueden llegar a 33 por mil.", ref:6},
+ {q:"¿Por qué los lotes sin construir pueden pagar hasta 33 por mil?", o:["Para incentivar que se construya y frenar la especulación","Porque valen más que las casas","Porque no tienen estrato","Porque están en zona rural"], why:"Es una herramienta de ordenamiento del territorio: castigar el lote de engorde y empujar a edificar.", ref:3},
+ {q:"Un apartamento tiene avalúo de $150.000.000 y tarifa de 5,5 por mil. ¿Cuánto es el impuesto pleno?", o:["$825.000","$82.500","$8.250.000","$550.000"], why:"$150.000.000 × (5,5 ÷ 1.000) = $825.000.", ref:9},
+ {q:"Ese impuesto de $825.000 se paga a tiempo con 10% de descuento. ¿Cuánto se paga?", o:["$742.500","$810.000","$735.000","$825.000"], why:"El descuento se aplica sobre el impuesto, no sobre el avalúo: $825.000 − $82.500 = $742.500.", ref:9},
+ {q:"Una casa tiene avalúo de $200.000.000 y tarifa de 6 por mil. ¿Cuánto es el predial pleno?", o:["$1.200.000","$120.000","$12.000.000","$600.000"], why:"$200.000.000 × (6 ÷ 1.000) = $1.200.000.", ref:9},
+ {q:"En Bogotá 2026, ¿hasta qué fecha aplicó el 10% de descuento por pronto pago?", o:["17 de abril","31 de enero","30 de junio","31 de diciembre"], why:"En 2026 el descuento del 10% aplicó hasta el 17 de abril, dentro del calendario tributario.", ref:11},
+ {q:"Si declaras tarde, pero antes del emplazamiento, ¿cuánto es la sanción?", o:["1,5% del impuesto por mes o fracción, hasta el 100%","10% fijo sin importar el retraso","5% por cada día","No hay sanción si al final pagas"], why:"Es 1,5% por cada mes o fracción de retraso, con tope del 100% del impuesto.", ref:11},
+ {q:"Eres estrato 2 y tu sanción por 3 meses de retraso da $37.125. ¿Cuánto pagas de sanción?", o:["La mínima: $209.000 (4 UVT)","$37.125","Nada, por ser estrato 2","$82.500"], why:"Si la sanción calculada es menor que la mínima del estrato, se cobra la mínima. En estratos 1 y 2 son 4 UVT.", ref:11},
+ {q:"¿Cuál es la diferencia entre un predio excluido y uno exento?", o:["El excluido no declara ni paga; el exento declara y paga lo no exento","Son lo mismo con otro nombre","El exento no declara; el excluido sí","El excluido paga la mitad"], why:"Excluido: ni declara ni paga. Exento: declara, pero paga solo lo que no cubre la exención.", ref:12},
+ {q:"¿Cuál de estos predios está EXCLUIDO del predial en Bogotá?", o:["Vivienda estrato 1 o 2 con avalúo menor a 16 smlmv","Un monumento nacional","Una casa afectada por un desastre natural","Un local comercial pequeño"], why:"El monumento y la casa afectada por desastre son exentos (sí declaran). El local paga normal.", ref:12},
+ {q:"¿Qué es el SPAC?", o:["Pagar el predial en 4 cuotas iguales, después de declarar","Un descuento para estratos 1 y 2","El sistema que calcula el avalúo","Una multa por no pagar"], why:"Es el Sistema de Pago Alternativo por Cuotas. Exige presentar declaración primero.", ref:10},
+ {q:"¿En cuál de estos casos NO es obligatorio presentar declaración privada?", o:["Cuando pagas la factura completa a tiempo","Cuando no estás de acuerdo con la liquidación","Cuando eliges pagar por cuotas (SPAC)","Cuando tu predio no tiene avalúo al 1 de enero"], why:"El pago total con la factura que envía Hacienda es la forma más usada y no requiere declarar.", ref:10},
+ {q:"Un predio funciona como colegio y además tiene una tienda. ¿Qué tarifa se le aplica?", o:["Dotacional: es el uso de mayor jerarquía","Comercial","Residencial","Un promedio de las dos"], why:"En uso mixto manda el de mayor jerarquía: dotacional, luego industrial, luego comercial.", ref:8},
+ {q:"La exención por catástrofe natural o actos terroristas en Bogotá dura como máximo…", o:["5 años desde la certificación","1 año","10 años","Para siempre"], why:"Requiere certificación del IDIGER, avalúo de daños y estar al día. Termina a los 5 años o al agotar el valor de los daños.", ref:13},
+ {q:"¿En qué se invierte lo que se recauda por predial?", o:["En la misma ciudad: vías, parques, seguridad, alumbrado","Va al presupuesto general de la Nación","Solo se usa para pagar el Catastro","Se reparte entre los departamentos"], why:"Son recursos propios del municipio que se invierten en la misma ciudad.", ref:3},
+ {q:"En Bogotá, ¿qué tarifa tienen las viviendas de estratos 1 y 2 con avalúo entre 16 y 107 smlmv?", o:["1 por mil","5,5 por mil","3 por mil","0 por mil"], why:"Acuerdo 648 de 2016: 1‰ para estratos 1 y 2 entre 16 y 107 smlmv; 3‰ de 107 a 135 smlmv.", ref:7},
+ {q:"¿Qué actor DETERMINA la base gravable (el avalúo)?", o:["El Catastro","El Concejo municipal","Los notarios","La Superintendencia de Notariado y Registro"], why:"El Concejo fija tarifas, el Catastro determina el avalúo y los notarios controlan el recaudo en compraventas.", ref:4},
+];
+
+/* ============ UTILIDADES ============ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const barajar = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const randn = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+const tri = p => { p = ((p % 1) + 1) % 1; return p < .5 ? p * 2 : 2 - p * 2; };
+const lerp = (a, b, t) => a + (b - a) * t;
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function semilla(s) { return () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+let ultima = 0; const guard = (ms = 250) => { const n = performance.now(); if (n - ultima < ms) return false; ultima = n; return true; };
+
+/* ============ GEOMETRÍA DE LA CANCHA (mundo 1600 × 900) ============ */
+const GREDA = [[632,294],[968,294],[990,604],[610,604]];
+const BOC = { x: 800, y: 452, rx: 58, ry: 37 };
+const MANO = 2.4;
+const POS_MECHAS = [[-1,0],[1,0],[0,-1],[0,1]];
+const RANGO_X = [585, 1015], RANGO_Y = [672, 268];
+function enGreda(x, y) { let d = false; for (let i = 0, j = 3; i < 4; j = i++) { const [xi, yi] = GREDA[i], [xj, yj] = GREDA[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) d = !d; } return d; }
+
+/* ============ ESCENA (SVG estático) ============ */
+function construirEscena() {
+  const R = semilla(19);
+  let s = `<defs>
+    <linearGradient id="gPared" gradientUnits="userSpaceOnUse" x1="0" y1="55" x2="0" y2="560"><stop offset="0" stop-color="#123432"/><stop offset="1" stop-color="#22605a"/></linearGradient>
+    <linearGradient id="gZoc" gradientUnits="userSpaceOnUse" x1="0" y1="560" x2="0" y2="680"><stop offset="0" stop-color="#8b2c22"/><stop offset="1" stop-color="#5c1a14"/></linearGradient>
+    <linearGradient id="gPiso" gradientUnits="userSpaceOnUse" x1="0" y1="680" x2="0" y2="1000"><stop offset="0" stop-color="#3d2514"/><stop offset="1" stop-color="#7c5333"/></linearGradient>
+    <linearGradient id="gGreda" gradientUnits="userSpaceOnUse" x1="0" y1="294" x2="0" y2="604"><stop offset="0" stop-color="#7b391c"/><stop offset=".45" stop-color="#a6522a"/><stop offset="1" stop-color="#c8713c"/></linearGradient>
+    <linearGradient id="gTabla" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a06a38"/><stop offset="1" stop-color="#6d421f"/></linearGradient>
+    <linearGradient id="gPoste" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3f230e"/><stop offset=".45" stop-color="#8a5a2e"/><stop offset="1" stop-color="#3a200c"/></linearGradient>
+    <linearGradient id="gMetal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".5" stop-color="#8e979f"/><stop offset="1" stop-color="#3f464d"/></linearGradient>
+    <radialGradient id="gLuz"><stop offset="0" stop-color="#ffd696" stop-opacity=".5"/><stop offset="1" stop-color="#ffd696" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gFoco"><stop offset="0" stop-color="#fff2c8" stop-opacity=".95"/><stop offset=".18" stop-color="#ffcf73" stop-opacity=".4"/><stop offset="1" stop-color="#ffc85a" stop-opacity="0"/></radialGradient>
+    <pattern id="pGreda" width="70" height="70" patternUnits="userSpaceOnUse">`;
+  for (let i = 0; i < 46; i++) s += `<circle cx="${(R()*70).toFixed(1)}" cy="${(R()*70).toFixed(1)}" r="${(.6+R()*1.6).toFixed(1)}" fill="${R()<.5?"#2e1206":"#ffd9b0"}" fill-opacity="${R()<.5?.28:.16}"/>`;
+  s += `</pattern><clipPath id="cGreda"><polygon points="${GREDA.map(p=>p.join(",")).join(" ")}"/></clipPath></defs>`;
+
+  // techo, viga y pared
+  s += `<rect x="-3000" y="-3000" width="7600" height="3058" fill="#120a05"/>`;
+  s += `<rect x="-3000" y="22" width="7600" height="36" fill="#3a2212"/><rect x="-3000" y="52" width="7600" height="6" fill="#1f1209"/>`;
+  s += `<rect x="-3000" y="58" width="7600" height="502" fill="url(#gPared)"/>`;
+  s += `<ellipse cx="800" cy="390" rx="560" ry="330" fill="url(#gLuz)"/>`;
+  for (let i = 0; i < 26; i++) s += `<ellipse cx="${(-200+R()*2000).toFixed(0)}" cy="${(90+R()*440).toFixed(0)}" rx="${(30+R()*90).toFixed(0)}" ry="${(14+R()*40).toFixed(0)}" fill="#fff" fill-opacity="${(.015+R()*.03).toFixed(3)}"/>`;
+  // zócalo
+  s += `<rect x="-3000" y="560" width="7600" height="120" fill="url(#gZoc)"/><rect x="-3000" y="552" width="7600" height="9" fill="#f0b429"/><rect x="-3000" y="561" width="7600" height="3" fill="#2a0c08" fill-opacity=".5"/>`;
+  // piso
+  s += `<rect x="-3000" y="680" width="7600" height="3000" fill="url(#gPiso)"/><g stroke="#1a0e06" stroke-opacity=".35" stroke-width="2">`;
+  for (let i = -26; i <= 26; i++) s += `<line x1="${800 + i * 62}" y1="680" x2="${800 + i * 62 * 9}" y2="2700"/>`;
+  let yy = 680, paso = 14; while (yy < 2600) { s += `<line x1="-3000" y1="${yy.toFixed(0)}" x2="4600" y2="${yy.toFixed(0)}"/>`; paso *= 1.32; yy += paso; }
+  s += `</g>`;
+  s += `<path d="M-3000 858 L4600 852 L4600 862 L-3000 868 Z" fill="#fff" fill-opacity=".5"/>`;
+  s += `<text x="800" y="900" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="900" font-size="15" letter-spacing="6" fill="#fff" fill-opacity=".35">LÍNEA DE LANZAMIENTO</text>`;
+  // postes
+  for (const x of [150, 1405]) s += `<rect x="${x}" y="-3000" width="46" height="3700" fill="url(#gPoste)"/><rect x="${x-6}" y="664" width="58" height="22" rx="3" fill="#2c180a"/>`;
+  // letrero del club
+  s += `<g transform="rotate(-2 400 285)">
+    <rect x="262" y="226" width="276" height="122" rx="10" fill="#f4dca8" stroke="#5c3415" stroke-width="7"/>
+    <rect x="274" y="238" width="252" height="98" rx="6" fill="none" stroke="#c0392b" stroke-width="2.5" stroke-dasharray="8 6"/>
+    <text x="400" y="266" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="900" font-size="15" letter-spacing="4" fill="#a51f2e">CLUB DE TEJO</text>
+    <text x="400" y="309" text-anchor="middle" font-family="'Lilita One',sans-serif" font-size="44" fill="#1550a6">El Avalúo</text>
+    <text x="400" y="330" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="12" letter-spacing="2" fill="#5c3415">DESDE LA LEY 44 DE 1990</text>
+  </g>`;
+  // tablero de puntos
+  s += `<g transform="rotate(1.5 1200 320)">
+    <rect x="1066" y="208" width="270" height="232" rx="8" fill="#1d2a24" stroke="#6d421f" stroke-width="10"/>
+    <text x="1201" y="246" text-anchor="middle" font-family="'Lilita One',sans-serif" font-size="26" fill="#ffc83a">TABLA DE PUNTOS</text>
+    <g font-family="Nunito,sans-serif" font-weight="800" font-size="20" fill="#f2efe6" fill-opacity=".92">
+      <text x="1092" y="284">Mano</text><text x="1310" y="284" text-anchor="end">1</text>
+      <text x="1092" y="316">Mecha</text><text x="1310" y="316" text-anchor="end">3</text>
+      <text x="1092" y="348">Embocinada</text><text x="1310" y="348" text-anchor="end">6</text>
+      <text x="1092" y="380">Moñona</text><text x="1310" y="380" text-anchor="end">9</text>
+    </g>
+    <text x="1201" y="418" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="14" fill="#9fe3bf">+1 por responder bien</text>
+    <path d="M1092 292h218M1092 324h218M1092 356h218" stroke="#f2efe6" stroke-opacity=".12"/>
+  </g>`;
+  // bombillos
+  for (const x of [420, 1180]) s += `<line x1="${x}" y1="58" x2="${x}" y2="160" stroke="#111" stroke-width="2"/><rect x="${x-7}" y="156" width="14" height="10" fill="#3a3a3a"/><circle cx="${x}" cy="176" r="150" fill="url(#gFoco)"/><circle cx="${x}" cy="174" r="10" fill="#fff4cf"/>`;
+  // banderines
+  const COLS = ["#ffc83a","#2f7ff0","#ec4152","#22b06b","#ff7ab6","#fff6e3","#ff8a1f"];
+  const cuerda = (x1, y1, x2, y2, sag, off) => {
+    const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2 + sag * 2;
+    s += `<path d="M${x1} ${y1} Q${cx} ${cy} ${x2} ${y2}" fill="none" stroke="#1a1209" stroke-width="2"/>`;
+    const n = Math.floor(Math.hypot(x2 - x1, y2 - y1) / 34);
+    for (let i = 1; i < n; i++) {
+      const t = i / n, px = (1-t)*(1-t)*x1 + 2*(1-t)*t*cx + t*t*x2, py = (1-t)*(1-t)*y1 + 2*(1-t)*t*cy + t*t*y2;
+      const tx = 2*(1-t)*(cx-x1) + 2*t*(x2-cx), ty = 2*(1-t)*(cy-y1) + 2*t*(y2-cy), L = Math.hypot(tx, ty), ux = tx/L, uy = ty/L;
+      const nx = -uy, ny = ux, sg = ny < 0 ? -1 : 1;
+      s += `<path d="M${(px-ux*13).toFixed(1)} ${(py-uy*13).toFixed(1)} L${(px+ux*13).toFixed(1)} ${(py+uy*13).toFixed(1)} L${(px+nx*sg*32).toFixed(1)} ${(py+ny*sg*32).toFixed(1)}Z" fill="${COLS[(i+off)%COLS.length]}" stroke="#000" stroke-opacity=".2"/>`;
+    }
+  };
+  cuerda(173, 70, 610, 62, 58, 0); cuerda(173, 150, 560, 120, 70, 3);
+  cuerda(990, 62, 1428, 70, 58, 2); cuerda(1040, 120, 1428, 150, 70, 5);
+  // caja de la cancha
+  s += `<ellipse cx="800" cy="668" rx="290" ry="16" fill="#000" fill-opacity=".5"/>`;
+  s += `<rect x="595" y="132" width="410" height="14" rx="3" fill="#4a2a10"/><rect x="605" y="144" width="390" height="152" fill="url(#gTabla)"/>`;
+  s += `<g stroke="#2e1708" stroke-opacity=".55" stroke-width="2">`; for (const y of [182, 220, 258]) s += `<line x1="605" y1="${y}" x2="995" y2="${y}"/>`; s += `</g>`;
+  for (let i = 0; i < 34; i++) { const x = 615 + R() * 370, y = 160 + R() * 130; s += `<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${(2+R()*7).toFixed(1)}" fill="#8f4a25" fill-opacity="${(.5+R()*.4).toFixed(2)}"/>`; }
+  s += `<polygon points="590,280 1010,280 1036,624 564,624" fill="#7a4b24"/>`;
+  s += `<polygon points="590,280 1010,280 968,294 632,294" fill="#9a6535"/><polygon points="590,280 632,294 610,604 564,624" fill="#6a3f1c"/><polygon points="1010,280 1036,624 990,604 968,294" fill="#5c3416"/>`;
+  s += `<polygon points="${GREDA.map(p=>p.join(",")).join(" ")}" fill="url(#gGreda)"/>`;
+  s += `<g clip-path="url(#cGreda)"><rect x="600" y="290" width="400" height="320" fill="url(#pGreda)"/>`;
+  for (let i = 0; i < 26; i++) {
+    let x, y, k = 0; do { x = 625 + R() * 350; y = 305 + R() * 290; k++; } while (Math.hypot((x - BOC.x) / BOC.rx, (y - BOC.y) / BOC.ry) < 1.7 && k < 20);
+    s += `<ellipse cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" rx="${(8+R()*7).toFixed(1)}" ry="${(3.5+R()*3).toFixed(1)}" fill="#3a1608" fill-opacity=".45"/><path d="M${(x-9).toFixed(0)} ${(y+2).toFixed(0)} q9 6 18 0" stroke="#e79a62" stroke-opacity=".35" stroke-width="1.5" fill="none"/>`;
+  }
+  s += `<ellipse cx="760" cy="360" rx="150" ry="34" fill="#fff" fill-opacity=".06" transform="rotate(-8 760 360)"/>`;
+  s += `<ellipse cx="850" cy="560" rx="120" ry="22" fill="#fff" fill-opacity=".05"/>`;
+  s += `<path d="M632 294 L968 294" stroke="#2a1105" stroke-opacity=".6" stroke-width="7"/></g>`;
+  s += `<ellipse cx="${BOC.x}" cy="${BOC.y}" rx="${BOC.rx*MANO}" ry="${BOC.ry*MANO}" fill="none" stroke="#ffe9c9" stroke-opacity=".28" stroke-width="2" stroke-dasharray="7 9"/>`;
+  s += `<ellipse cx="${BOC.x}" cy="${BOC.y}" rx="${BOC.rx}" ry="${BOC.ry}" fill="#1a0c05"/>`;
+  s += `<ellipse cx="${BOC.x}" cy="${BOC.y+5}" rx="${BOC.rx-8}" ry="${BOC.ry-8}" fill="#000" fill-opacity=".55"/>`;
+  s += `<ellipse cx="${BOC.x}" cy="${BOC.y+3}" rx="${BOC.rx}" ry="${BOC.ry}" fill="none" stroke="#2c3136" stroke-width="9"/>`;
+  s += `<ellipse cx="${BOC.x}" cy="${BOC.y}" rx="${BOC.rx}" ry="${BOC.ry}" fill="none" stroke="url(#gMetal)" stroke-width="8"/>`;
+  s += `<path d="M${BOC.x-50} ${BOC.y-15} Q${BOC.x} ${BOC.y-50} ${BOC.x+50} ${BOC.y-15}" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="2"/>`;
+  s += `<polygon points="564,624 1036,624 1036,668 564,668" fill="#4e2c12"/><rect x="564" y="624" width="472" height="5" fill="#8a5a2e"/><line x1="564" y1="646" x2="1036" y2="646" stroke="#2c1608" stroke-width="2"/>`;
+  for (const x of [584, 700, 800, 900, 1016]) s += `<circle cx="${x}" cy="635" r="2.6" fill="#c8ccd0"/><circle cx="${x}" cy="657" r="2.6" fill="#c8ccd0"/>`;
+  $("#escena").innerHTML = s;
+}
+construirEscena();
+
+/* ============ VISTA (mundo → pantalla) ============ */
+const svg = $("#escena"), lienzo = $("#lienzo"), ctx = lienzo.getContext("2d"), mundo = $("#mundo");
+let W = 1, H = 1, DPR = 1; const V = { s: 1, x0: 0, y0: 0, vw: 1600, vh: 900 }; let MANOJO = { x: 800, y: 790 };
+function medir() {
+  W = Math.max(1, innerWidth); H = Math.max(1, innerHeight); DPR = Math.min(devicePixelRatio || 1, 2);
+  let s = Math.max(W / 1600, H / 900); s = Math.min(s, W / (W < 600 ? 610 : 760), (H - 170) / 560); s = Math.max(s, .2);
+  V.s = s; V.vw = W / s; V.vh = H / s; V.x0 = 800 - V.vw / 2; V.y0 = 432 - V.vh / 2;
+  svg.setAttribute("viewBox", `${V.x0} ${V.y0} ${V.vw} ${V.vh}`);
+  lienzo.width = Math.round(W * DPR); lienzo.height = Math.round(H * DPR);
+  const bajo = W <= 760 ? 190 : 150;
+  MANOJO = { x: 800, y: Math.max(752, Math.min(V.y0 + V.vh - bajo / s, 900)) };
+}
+addEventListener("resize", medir); medir();
+
+/* ============ SONIDO ============ */
+let AC = null, mudo = false;
+try { mudo = localStorage.getItem("tejo-mudo") === "1"; } catch (e) {}
+function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } } if (AC.state === "suspended") AC.resume(); return AC; }
+function tono(f, dur, tipo = "sine", vol = .2, cuando = 0, f2) {
+  const a = ac(); if (!a || mudo) return; const t = a.currentTime + cuando, o = a.createOscillator(), g = a.createGain();
+  o.type = tipo; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + .05);
+}
+function ruido(dur, vol, fc, tipo = "lowpass", cuando = 0, fin = 70, ataque = .005) {
+  const a = ac(); if (!a || mudo) return; const t = a.currentTime + cuando, len = Math.floor(a.sampleRate * dur), b = a.createBuffer(1, len, a.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = a.createBufferSource(); src.buffer = b; const f = a.createBiquadFilter(); f.type = tipo; f.Q.value = tipo === "bandpass" ? 1.2 : .7;
+  f.frequency.setValueAtTime(fc, t); f.frequency.exponentialRampToValueAtTime(fin, t + dur);
+  const g = a.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + ataque); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  src.connect(f).connect(g).connect(a.destination); src.start(t); src.stop(t + dur + .05);
+}
+const SFX = {
+  clic() { tono(700, .06, "triangle", .12); },
+  bien() { [523, 659, 784, 1047].forEach((f, i) => tono(f, .28, "triangle", .2, i * .08)); },
+  mal() { tono(330, .45, "sawtooth", .09, 0, 140); tono(250, .45, "sawtooth", .06, .05, 110); },
+  tic() { tono(1100, .04, "square", .05); },
+  lanzar() { ruido(.5, .22, 2600, "bandpass", 0, 500, .15); },
+  greda() { tono(95, .25, "sine", .7, 0, 38); ruido(.22, .45, 900, "lowpass", 0, 120); },
+  madera() { tono(260, .12, "triangle", .35, 0, 140); ruido(.08, .3, 2400, "bandpass", 0, 900); },
+  mecha() { ruido(1.7, 1, 3800, "lowpass", 0, 60, .002); tono(62, .9, "sine", .9, 0, 24); for (let i = 0; i < 9; i++) ruido(.06, .35, 3000, "bandpass", .15 + Math.random() * .7, 1500); },
+  publico(f = 1) { ruido(2.2, .28 * f, 900, "bandpass", .1, 700, .5); ruido(2, .18 * f, 1700, "bandpass", .2, 1200, .6); },
+  fanfarria() { [[523,0],[659,.12],[784,.24],[1047,.36],[784,.56],[1047,.68]].forEach(([f, t]) => tono(f, .34, "square", .07, t)); },
+  banner() { tono(392, .12, "triangle", .14); tono(587, .2, "triangle", .14, .1); },
+};
+const ICON_ON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>`;
+const ICON_OFF = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>`;
+function pintarSonido() { const b = $("#btnSonido"); b.innerHTML = mudo ? ICON_OFF : ICON_ON; b.setAttribute("aria-label", mudo ? "Activar sonido" : "Silenciar sonido"); }
+$("#btnSonido").addEventListener("click", () => { mudo = !mudo; try { localStorage.setItem("tejo-mudo", mudo ? "1" : "0"); } catch (e) {} pintarSonido(); SFX.clic(); });
+pintarSonido();
+const btnPant = $("#btnPantalla");
+if (!document.fullscreenEnabled) btnPant.hidden = true;
+btnPant.addEventListener("click", () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} });
+
+/* ============ ESTADO ============ */
+const COL = ["#ffc83a", "#2f7ff0"];
+const G = { eq: [], turnos: 12, tiempo: 30, turno: 0, mazo: [], fase: "inicio", q: null, elim: [], log: [], elegida: null,
+  ax: 800, ay: 455, t0: 0, off: 0, tq0: 0, ultTic: 99, vuelo: null, caida: null, tejos: [], piso: [], mechas: [], tiro: null };
+function ponerMechas() { G.mechas = POS_MECHAS.map(([nx, ny]) => ({ nx, ny, x: BOC.x + nx * BOC.rx, y: BOC.y + ny * BOC.ry, boom: false })); }
+ponerMechas();
+let parts = [], destello = 0, sacudida = 0;
+
+/* ============ DIBUJO DINÁMICO ============ */
+function disco(x, y, r, ry, borde) {
+  ctx.fillStyle = "#1f2327"; ctx.beginPath(); ctx.ellipse(x, y + Math.max(2, r * .16), r, ry, 0, 0, Math.PI * 2); ctx.fill();
+  const g = ctx.createRadialGradient(x - r * .35, y - ry * .5, r * .08, x, y, r);
+  g.addColorStop(0, "#f6f8fa"); g.addColorStop(.45, "#949ca5"); g.addColorStop(1, "#33383e");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, r, ry, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = Math.max(1.5, r * .09); ctx.strokeStyle = borde; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(x, y, r * .55, ry * .55, 0, Math.PI * 1.1, Math.PI * 1.8); ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = Math.max(1, r * .06); ctx.stroke();
+}
+function mecha(m, t) {
+  if (m.boom) { ctx.fillStyle = "rgba(15,8,3,.7)"; ctx.beginPath(); ctx.ellipse(m.x, m.y, 15, 6, 0, 0, Math.PI * 2); ctx.fill(); return; }
+  const w = 16, h = 25, x = m.x, y = m.y + 4;
+  ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(x + 2, y, 12, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x - w, y); ctx.lineTo(x + w, y); ctx.lineTo(x, y - h); ctx.closePath();
+  ctx.fillStyle = "#fffaf0"; ctx.fill(); ctx.strokeStyle = "#8a6a48"; ctx.lineWidth = 1.4; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - w * .35, y - h * .62); ctx.lineTo(x + w * .35, y - h * .62); ctx.lineTo(x, y - h); ctx.closePath(); ctx.fillStyle = "#ec4152"; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - h); ctx.strokeStyle = "rgba(0,0,0,.12)"; ctx.stroke();
+  if (G.fase === "apuntarX" || G.fase === "apuntarY") { ctx.globalAlpha = .35 + .35 * Math.sin(t * 6); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, y - 9, 22, 17, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
+}
+
+function dibujar(now) {
+  const t = now / 1000;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
+  ctx.setTransform(DPR * V.s, 0, 0, DPR * V.s, -V.x0 * V.s * DPR, -V.y0 * V.s * DPR);
+  for (const tj of G.tejos) {
+    ctx.fillStyle = "rgba(48,18,6,.7)"; ctx.beginPath(); ctx.ellipse(tj.x, tj.y + 2, 22, 9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(230,150,95,.5)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(tj.x, tj.y + 3, 23, 10, 0, .1, Math.PI - .1); ctx.stroke();
+    disco(tj.x, tj.y - 1, 15, 6, tj.c);
+  }
+  G.mechas.slice().sort((a, b) => a.y - b.y).forEach(m => mecha(m, t));
+  for (const tj of G.piso) disco(tj.x, tj.y, 17, 6.5, tj.c);
+
+  const k = 1 + G.turno * .022, dt = (now - G.t0) / 1000;
+  if (G.fase === "apuntarX") { G.ax = lerp(RANGO_X[0], RANGO_X[1], tri(dt * k / 2.7 + G.off)); guia(t, false); }
+  else if (G.fase === "apuntarY") { G.ay = lerp(RANGO_Y[0], RANGO_Y[1], tri(dt * k / 2.5)); guia(t, true); }
+  if (G.fase === "apuntarX" || G.fase === "apuntarY") {
+    const hx = MANOJO.x + (G.ax - 800) * .35, hy = MANOJO.y + Math.sin(t * 3) * 4;
+    ctx.save(); ctx.shadowColor = COL[G.turno % 2]; ctx.shadowBlur = 30; disco(hx, hy, 50, 22, COL[G.turno % 2]); ctx.restore();
+  }
+  if (G.vuelo) volar(now);
+  if (G.caida) caer(now);
+  for (const p of parts) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.vida / p.max)); ctx.fillStyle = p.c;
+    if (p.tipo === "papel") { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillRect(-p.r, -p.r * .6, p.r * 2, p.r * 1.2); ctx.restore(); }
+    else { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); }
+  }
+  ctx.globalAlpha = 1;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (destello > 0) { ctx.fillStyle = `rgba(255,236,180,${destello})`; ctx.fillRect(0, 0, W, H); }
+}
+
+function guia(t, conY) {
+  const x = G.ax, top = 250, bot = 690, ok = x > 604 && x < 996;
+  ctx.save();
+  ctx.shadowColor = ok ? "#ffc83a" : "#ff5a6a"; ctx.shadowBlur = 16;
+  ctx.strokeStyle = ok ? "rgba(255,200,58,.95)" : "rgba(255,90,106,.95)"; ctx.lineWidth = 3.5; ctx.setLineDash([14, 10]); ctx.lineDashOffset = -t * 40;
+  ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bot); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.beginPath(); ctx.moveTo(x, bot + 4); ctx.lineTo(x - 12, bot + 22); ctx.lineTo(x + 12, bot + 22); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x, top - 4); ctx.lineTo(x - 12, top - 22); ctx.lineTo(x + 12, top - 22); ctx.closePath(); ctx.fill();
+  if (conY) {
+    const y = G.ay, dentro = enGreda(x, y), c = dentro ? "#fff3c4" : "#ff5a6a", p = 1 + Math.sin(t * 10) * .08;
+    ctx.shadowColor = c; ctx.strokeStyle = c; ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.ellipse(x, y, 22 * p, 15 * p, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - 34, y); ctx.lineTo(x - 12, y); ctx.moveTo(x + 12, y); ctx.lineTo(x + 34, y); ctx.moveTo(x, y - 24); ctx.lineTo(x, y - 8); ctx.moveTo(x, y + 8); ctx.lineTo(x, y + 24); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function lanzar() {
+  const tx = G.ax + randn() * 6, ty = G.ay + randn() * 5;
+  G.vuelo = { x0: MANOJO.x + (G.ax - 800) * .35, y0: MANOJO.y, x1: tx, y1: ty, t0: performance.now(), dur: reduce ? 500 : 1000 };
+  G.fase = "vuelo"; SFX.lanzar(); render();
+}
+function volar(now) {
+  const v = G.vuelo, u = Math.max(0, Math.min(1, (now - v.t0) / v.dur));
+  const pos = uu => { const ee = 1 - Math.pow(1 - uu, 1.6); return [lerp(v.x0, v.x1, ee), lerp(v.y0, v.y1, ee) - 330 * 4 * uu * (1 - uu), lerp(50, 15, Math.pow(uu, .7))]; };
+  for (let g = 3; g >= 1; g--) { const [gx, gy, gr] = pos(Math.max(0, u - g * .025)); ctx.globalAlpha = .12 * (4 - g); disco(gx, gy, gr, gr * .4, COL[G.turno % 2]); }
+  ctx.globalAlpha = 1;
+  const [x, y, r] = pos(u);
+  disco(x, y, r, r * (.2 + .8 * Math.abs(Math.sin(u * 22))), COL[G.turno % 2]);
+  if (u >= 1) { G.vuelo = null; aterrizar(v.x1, v.y1); }
+}
+function caer(now) {
+  const c = G.caida, u = Math.max(0, Math.min(1, (now - c.t0) / c.dur)), y = c.y0 + (c.y1 - c.y0) * u * u;
+  disco(lerp(c.x0, c.x1, u), y, 17, 6.5 + 10 * Math.abs(Math.sin(u * 9)) * (1 - u), c.c);
+  if (u >= 1) { G.piso.push({ x: c.x1, y: c.y1, c: c.c }); if (G.piso.length > 8) G.piso.shift(); G.caida = null; SFX.madera(); }
+}
+
+function chispas(x, y, n, colores, vel, tipo) {
+  for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, sp = vel * (.3 + Math.random());
+    parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - vel * .5, r: tipo === "papel" ? 3 + Math.random() * 4 : 1.5 + Math.random() * 3.5, vida: .6 + Math.random() * .9, max: 1.4, c: colores[i % colores.length], g: tipo === "papel" ? 260 : 700, tipo, rot: Math.random() * 6, vr: (Math.random() - .5) * 14, roce: tipo === "papel" ? .985 : .995 }); }
+}
+function humo(x, y, n) { for (let i = 0; i < n; i++) parts.push({ x: x + (Math.random() - .5) * 30, y: y - Math.random() * 20, vx: (Math.random() - .5) * 50, vy: -25 - Math.random() * 50, r: 10 + Math.random() * 14, vida: 1.6 + Math.random(), max: 2.6, c: "rgba(200,200,205,.55)", g: -12, crece: 28, roce: .99 }); }
+function explotar(m) {
+  m.boom = true; const y = m.y - 8;
+  chispas(m.x, y, reduce ? 20 : 90, ["#ffd23f", "#ff8a1c", "#ff3d3d", "#fff6d8"], 520);
+  chispas(m.x, y, reduce ? 6 : 26, ["#fffaf0", "#ec4152", "#ffe7c2"], 300, "papel");
+  humo(m.x, y, reduce ? 4 : 20);
+  destello = reduce ? .2 : .8; sacudida = reduce ? 0 : 26;
+}
+function confeti() {
+  const n = reduce ? 30 : 180;
+  for (let i = 0; i < n; i++) parts.push({ x: V.x0 + Math.random() * V.vw, y: V.y0 - 20 - Math.random() * 300, vx: (Math.random() - .5) * 80, vy: 80 + Math.random() * 160, r: 4 + Math.random() * 5, vida: 4 + Math.random() * 2, max: 6,
+    c: ["#ffc83a", "#2f7ff0", "#ec4152", "#22b06b", "#ff7ab6", "#fff"][i % 6], g: 40, tipo: "papel", rot: Math.random() * 6, vr: (Math.random() - .5) * 10, roce: .995 });
+}
+
+function aterrizar(x, y) {
+  const nx = (x - BOC.x) / BOC.rx, ny = (y - BOC.y) / BOC.ry, r = Math.hypot(nx, ny), dentroG = enGreda(x, y);
+  const hits = dentroG ? G.mechas.filter(m => !m.boom && Math.hypot(nx - m.nx, ny - m.ny) < .38) : [];
+  const emboc = dentroG && r < .82;
+  let res;
+  if (!dentroG) res = { n: y < 294 ? "¡Se pasó!" : y > 604 ? "¡Corto!" : "¡Por fuera!", p: 0, d: "El tejo pegó en la madera y no quedó en la greda." };
+  else if (emboc && hits.length) res = { n: "¡Moñona!", p: 9, d: "Embocinada y mecha en el mismo tiro. ¡La jugada perfecta!" };
+  else if (emboc) res = { n: "¡Embocinada!", p: 6, d: "El tejo quedó adentro del bocín." };
+  else if (hits.length) res = { n: "¡Mecha!", p: 3, d: "¡Tronó la mecha! Reventó al primer golpe." };
+  else if (r < MANO) res = { n: "¡Mano!", p: 1, d: "Quedó cerca del bocín, dentro del óvalo punteado." };
+  else res = { n: "¡En la greda!", p: 0, d: "Quedó en la cancha, pero lejos del bocín." };
+  const c = COL[G.turno % 2];
+  if (dentroG) {
+    G.tejos.push({ x, y, c }); if (G.tejos.length > 12) G.tejos.shift();
+    chispas(x, y, reduce ? 6 : 22, ["#a6522a", "#7b391c", "#c8713c"], 200);
+    if (!hits.length) { SFX.greda(); sacudida = reduce ? 0 : 7; }
+  } else {
+    SFX.madera(); chispas(x, y, reduce ? 4 : 12, ["#a06a38", "#6d421f"], 160);
+    G.caida = { x0: x, y0: y, x1: Math.max(560, Math.min(1040, x + (Math.random() - .5) * 60)), y1: 690 + Math.random() * 30, t0: performance.now(), dur: 420, c };
+  }
+  if (hits.length) { hits.forEach(explotar); SFX.mecha(); setTimeout(() => SFX.publico(res.p === 9 ? 1.4 : 1), 250); if (res.p === 9) confeti(); }
+  else if (res.p === 6) SFX.publico(.9);
+  const e = G.eq[G.turno % 2]; e.pts += res.p; if (hits.length) e.mechas++; if (res.p === 9) e.monas++;
+  G.tiro = res; G.log[G.log.length - 1].tiro = res; G.fase = "resultado";
+  mostrarPop(res.n, res.p ? `+${res.p} ${res.p === 1 ? "PUNTO" : "PUNTOS"}` : "SIN PUNTOS", res.p === 0);
+  render(); bump(G.turno % 2);
+  setTimeout(() => { if (G.fase === "resultado") pintarResultado(); }, reduce ? 200 : 900);
+}
+
+function mostrarPop(t, s, cero) {
+  const pop = $("#pop");
+  pop.className = "pop" + (cero ? " cero" : "");
+  pop.innerHTML = `${cero ? "" : '<div class="rayos"></div>'}<div class="t">${esc(t)}</div><div class="s">${esc(s)}</div>`;
+  void pop.offsetWidth; pop.classList.add("anim");
+}
+
+let antes = performance.now();
+function bucle(now) {
+  const dt = Math.min(.05, (now - antes) / 1000); antes = now;
+  for (const p of parts) { p.vida -= dt; p.vy += p.g * dt; p.vx *= p.roce || 1; p.x += p.vx * dt; p.y += p.vy * dt; if (p.crece) p.r += p.crece * dt; if (p.vr) p.rot += p.vr * dt; }
+  parts = parts.filter(p => p.vida > 0);
+  destello = Math.max(0, destello - dt * 2.4); sacudida = Math.max(0, sacudida - dt * 45);
+  mundo.style.transform = sacudida > .3 ? `translate(${((Math.random() - .5) * sacudida).toFixed(1)}px,${((Math.random() - .5) * sacudida).toFixed(1)}px)` : "";
+  dibujar(now); medidor(); reloj(now);
+  requestAnimationFrame(bucle);
+}
+requestAnimationFrame(bucle);
+
+/* ============ MEDIDOR Y RELOJ ============ */
+const med = $("#medidor");
+const TACTIL = matchMedia("(hover: none) and (pointer: coarse)").matches;
+if (TACTIL) { document.documentElement.classList.add("tactil"); $("#medAyuda").textContent = "Toca la pantalla"; }
+med.addEventListener("pointerdown", e => { if (G.fase === "apuntarX" || G.fase === "apuntarY") { e.preventDefault(); avanzar(); } });
+const pct = (v, a, b) => ((v - a) / (b - a) * 100).toFixed(2) + "%";
+function prepararMedidor() {
+  const esX = G.fase === "apuntarX", [a, b] = esX ? RANGO_X : RANGO_Y;
+  $("#medTit").textContent = esX ? "Paso 1 · Dirección" : "Paso 2 · Fuerza";
+  $("#medIzq").textContent = esX ? "Izquierda" : "Corto";
+  $("#medDer").textContent = esX ? "Derecha" : "Largo";
+  const z0 = esX ? BOC.x - BOC.rx : BOC.y + BOC.ry, z1 = esX ? BOC.x + BOC.rx : BOC.y - BOC.ry;
+  const zona = $("#medZona"); zona.style.left = pct(z0, a, b); zona.style.width = ((z1 - z0) / (b - a) * 100).toFixed(2) + "%";
+  $("#medM1").style.left = pct(z0, a, b); $("#medM2").style.left = pct(z1, a, b);
+}
+function medidor() {
+  if (med.hidden) return;
+  const esX = G.fase === "apuntarX", [a, b] = esX ? RANGO_X : RANGO_Y;
+  $("#medMarca").style.left = pct(esX ? G.ax : G.ay, a, b);
+}
+function reloj(now) {
+  if (G.fase !== "pregunta" || !G.tiempo) return;
+  const rest = Math.max(0, G.tiempo - (now - G.tq0) / 1000), f = rest / G.tiempo;
+  const fill = $("#rFill"), num = $("#rNum"), caja = $("#rCaja"); if (!fill) return;
+  fill.style.transform = `scaleX(${f})`;
+  fill.style.background = f > .5 ? "var(--verde)" : f > .25 ? "var(--amarillo)" : "var(--rojo)";
+  const s = Math.ceil(rest); num.textContent = s; caja.classList.toggle("urge", s <= 5);
+  if (s <= 5 && s < G.ultTic && s > 0) { G.ultTic = s; SFX.tic(); }
+  if (rest <= 0) responder(-1);
+}
+
+/* ============ FLUJO DEL JUEGO ============ */
+function nuevaPartida(nA, nB, turnos, tiempo) {
+  G.eq = [nA || "Equipo 1", nB || "Equipo 2"].map(n => ({ nombre: n, pts: 0, comodin: true, aciertos: 0, mechas: 0, monas: 0 }));
+  G.turnos = turnos; G.tiempo = tiempo; G.turno = 0; G.log = []; G.tejos = []; G.piso = []; parts = [];
+  G.mazo = barajar(PREGUNTAS).slice(0, turnos).map(p => { const o = barajar([0, 1, 2, 3]); return { ...p, ops: o.map(i => p.o[i]), a: o.indexOf(0) }; });
+  $("#marcador").hidden = false;
+  turnoNuevo();
+}
+let timerBanner = null;
+function turnoNuevo() {
+  $("#tres").hidden = true; med.hidden = true;
+  if (G.turno >= G.turnos) return fin();
+  G.q = G.mazo[G.turno]; G.elim = []; G.tiro = null; G.elegida = null; ponerMechas();
+  G.fase = "banner"; render();
+  const eq = G.turno % 2, b = $("#banner");
+  b.innerHTML = `<div class="franja ${eq ? "b" : ""}"><small>TURNO ${G.turno + 1} DE ${G.turnos}</small><strong>${esc(G.eq[eq].nombre)}</strong></div>`;
+  b.hidden = false; SFX.banner();
+  clearTimeout(timerBanner);
+  timerBanner = setTimeout(() => { if (G.fase === "banner") { b.hidden = true; mostrarPregunta(); } }, reduce ? 800 : 1500);
+}
+function mostrarPregunta() { G.fase = "pregunta"; G.tq0 = performance.now(); G.ultTic = 99; render(); const o = document.querySelector(".op"); if (o) o.focus({ preventScroll: true }); }
+function responder(i) {
+  if (G.fase !== "pregunta") return; if (i >= 0 && (G.elim.includes(i) || !guard())) return;
+  const e = G.eq[G.turno % 2], ok = i === G.q.a;
+  G.fase = "retro"; G.elegida = i;
+  if (ok) { e.pts++; e.aciertos++; SFX.bien(); } else SFX.mal();
+  G.log.push({ q: G.q, eq: G.turno % 2, ok, tiro: null, tiempo: i < 0 });
+  render(); if (ok) bump(G.turno % 2);
+  const go = $("#go"); if (go) go.focus({ preventScroll: true });
+}
+function comodin() {
+  const e = G.eq[G.turno % 2]; if (!e.comodin || G.fase !== "pregunta") return;
+  e.comodin = false; SFX.clic(); G.elim = barajar([0, 1, 2, 3].filter(i => i !== G.q.a)).slice(0, 2); render(); renderMarcador();
+}
+function avanzar() {
+  if (!guard()) return;
+  if (G.fase === "banner") { clearTimeout(timerBanner); $("#banner").hidden = true; mostrarPregunta(); }
+  else if (G.fase === "retro") {
+    if (G.log[G.log.length - 1].ok) { G.fase = "apuntarX"; G.t0 = performance.now(); G.off = Math.random(); render(); }
+    else { G.turno++; turnoNuevo(); }
+  }
+  else if (G.fase === "apuntarX") { G.fase = "apuntarY"; G.t0 = performance.now(); SFX.clic(); render(); }
+  else if (G.fase === "apuntarY") { lanzar(); }
+  else if (G.fase === "resultado" && !$("#tres").hidden) { G.turno++; turnoNuevo(); }
+}
+function bump(i) { const n = document.querySelector(`#placa${i} .num`); if (n) { n.classList.remove("sube"); void n.offsetWidth; n.classList.add("sube"); } }
+
+/* ============ RENDER ============ */
+function renderMarcador() {
+  if (!G.eq.length) return;
+  const act = G.turno % 2, juega = !["inicio", "fin"].includes(G.fase);
+  G.eq.forEach((e, i) => {
+    const p = $("#placa" + i); p.classList.toggle("activa", juega && i === act);
+    p.innerHTML = `<div class="num">${e.pts}</div><div class="info"><div class="nom">${esc(e.nombre)}</div><div class="sub">${e.aciertos} aciertos · ${e.mechas} mechas${e.comodin ? "" : " · sin comodín"}</div></div>${juega && i === act ? '<span class="letoca">¡LE TOCA!</span>' : ""}`;
+  });
+  $("#ronda").innerHTML = `TURNO <b>${Math.min(G.turno + 1, G.turnos)}</b> / ${G.turnos}`;
+  $("#puntitos").innerHTML = Array.from({ length: G.turnos }, (_, i) => {
+    const l = G.log[i]; let c = ""; if (l) c = l.ok ? (l.eq ? "b" : "a") : "x";
+    return `<i class="${c} ${i === G.turno && juega ? "ya" : ""}"></i>`;
+  }).join("");
+}
+
+const ICON_TEL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>`;
+function render() {
+  renderMarcador();
+  const capa = $("#capaPregunta");
+  med.hidden = !(G.fase === "apuntarX" || G.fase === "apuntarY");
+  if (!med.hidden) prepararMedidor();
+  if (G.fase === "pregunta" || G.fase === "retro") {
+    const q = G.q, i = G.turno % 2, e = G.eq[i], resp = G.fase === "retro", ult = G.log[G.log.length - 1];
+    const ops = q.ops.map((o, k) => {
+      let cls = "op"; if (G.elim.includes(k)) cls += " fuera";
+      if (resp) { if (k === q.a) cls += " bien"; else if (k === G.elegida) cls += " mal"; else cls += " apaga"; }
+      return `<button class="${cls}" id="op-${k}" data-k="${k}" type="button" ${resp || G.elim.includes(k) ? "disabled" : ""}><span class="k">${k + 1}</span><span class="txt">${esc(o)}</span></button>`;
+    }).join("");
+    let pie;
+    if (!resp) pie = `<div class="tq-pie"><button class="comodin" id="comodin" type="button" ${e.comodin && !G.elim.length ? "" : "disabled"}>${ICON_TEL}Llamar al vecino ${e.comodin ? "(quita 2)" : "(usado)"}</button><span class="teclas">Teclas <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd></span></div>`;
+    else pie = `<div class="retro ${ult.ok ? "ok" : "no"}"><div class="sello">${ult.ok ? "✓" : "✗"}</div>
+        <h3>${ult.ok ? "¡Correcto! +1 punto" : ult.tiempo ? "¡Se acabó el tiempo!" : "¡Uy, no era esa!"}</h3>
+        <p>${ult.ok ? "" : `La respuesta era: <b>${esc(q.ops[q.a])}</b>. `}${esc(q.why)}</p></div>
+        <button class="boton ${ult.ok ? "verde" : ""} ancho" id="go" type="button">${ult.ok ? "¡A LANZAR EL TEJO!" : "SIGUIENTE TURNO"} <small>ESPACIO</small></button>`;
+    const nuevo = capa.hidden;
+    capa.innerHTML = `<div class="tq ${i ? "b" : ""} ${nuevo ? "entra" : ""}" role="dialog" aria-modal="true" aria-labelledby="tqP">
+      <div class="tq-cab"><span class="tq-num">Pregunta ${G.turno + 1}</span><span class="tq-eq">Responde: ${esc(e.nombre)}</span><span class="tq-diap">Diapositiva ${q.ref}</span></div>
+      <div class="tq-cuerpo">
+        ${G.tiempo && !resp ? `<div class="reloj" id="rCaja"><div class="reloj-barra"><div class="reloj-fill" id="rFill"></div></div><span class="reloj-num" id="rNum">${G.tiempo}</span></div>` : ""}
+        <h2 class="tq-preg" id="tqP">${esc(q.q)}</h2>
+        <div class="ops">${ops}</div>
+        ${pie}
+      </div></div>`;
+    capa.hidden = false;
+  } else capa.hidden = true;
+  if (G.fase !== "resultado") $("#tres").hidden = true;
+}
+
+function pintarResultado() {
+  const r = G.tiro, q = G.q, ult = G.turno + 1 >= G.turnos, t = $("#tres");
+  t.innerHTML = `<h3 class="${r.p ? "" : "cero"}">${esc(r.n)}</h3><p>${esc(r.d)}</p>
+    <dl class="cuentas"><dt>Respuesta correcta</dt><dd>+1</dd><dt>Tiro de tejo</dt><dd>+${r.p}</dd><dt class="tot">Total del turno</dt><dd class="tot">+${r.p + 1}</dd></dl>
+    <div class="recuerda"><b>Para recordar · Diap. ${q.ref}</b>${esc(q.why)}</div>
+    <button class="boton ancho" id="go2" type="button">${ult ? "VER RESULTADOS" : "SIGUIENTE TURNO"} <small>ESPACIO</small></button>`;
+  t.hidden = false;
+  $("#go2").addEventListener("click", avanzar); $("#go2").focus({ preventScroll: true });
+}
+
+/* ============ EVENTOS ============ */
+$("#capaPregunta").addEventListener("click", e => {
+  const o = e.target.closest(".op"); if (o && !o.disabled) return responder(+o.dataset.k);
+  if (e.target.closest("#comodin")) return comodin();
+  if (e.target.closest("#go")) return avanzar();
+});
+$("#lienzo").addEventListener("pointerdown", e => { if (G.fase === "apuntarX" || G.fase === "apuntarY") { e.preventDefault(); avanzar(); } });
+$("#banner").addEventListener("click", avanzar);
+document.addEventListener("keydown", e => {
+  if (e.target.matches && e.target.matches("input")) return;
+  if (!$("#capaInicio").hidden || !$("#capaFin").hidden) return;
+  if (G.fase === "pregunta" && /^[1-4]$/.test(e.key)) { e.preventDefault(); return responder(+e.key - 1); }
+  if (e.key === " " || e.key === "Enter") {
+    if (G.fase === "pregunta") return;
+    e.preventDefault(); avanzar();
+  }
+});
+
+/* ============ INICIO Y FIN ============ */
+function empezar() {
+  $("#capaInicio").hidden = true;
+  try { ac(); SFX.fanfarria(); } catch (e) {}
+  const t = document.querySelector('input[name="turnos"]:checked'), s = document.querySelector('input[name="tiempo"]:checked');
+  nuevaPartida($("#nomA").value.trim(), $("#nomB").value.trim(), t ? +t.value : 12, s ? +s.value : 30);
+}
+$("#btnJugar").addEventListener("click", empezar);
+["#nomA", "#nomB"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); empezar(); } }));
+function abrirInicio() {
+  if (G.eq.length) { $("#nomA").value = G.eq[0].nombre; $("#nomB").value = G.eq[1].nombre; }
+  clearTimeout(timerBanner);
+  G.fase = "inicio"; G.vuelo = null; $("#capaFin").hidden = true; $("#tres").hidden = true; $("#capaPregunta").hidden = true; med.hidden = true; $("#banner").hidden = true;
+  $("#capaInicio").hidden = false; $("#btnJugar").focus({ preventScroll: true });
+}
+$("#btnMenu").addEventListener("click", abrirInicio);
+
+function fin() {
+  G.fase = "fin"; render();
+  const [a, b] = G.eq, empate = a.pts === b.pts, g = a.pts > b.pts ? 0 : 1;
+  const nombreTiro = r => r ? r.n.replace(/[¡!]/g, "") : "Sin lanzamiento";
+  $("#capaFin").innerHTML = `<div class="fin entra" role="dialog" aria-modal="true" aria-labelledby="tFin">
+    <div class="fin-cab"><small>${empate ? "FIN DE LA PARTIDA" : "¡CAMPEONES DE LA CANCHA!"}</small><h2 id="tFin">${empate ? "¡Empate!" : esc(G.eq[g].nombre)}</h2></div>
+    <div class="fin-cuerpo">
+      <div class="podio">${G.eq.map((e, i) => `<div class="pod ${i ? "b" : ""} ${!empate && i !== g ? "pierde" : ""}">
+        ${!empate && i === g ? '<span class="corona">GANADOR</span>' : ""}
+        <div class="n">${esc(e.nombre)}</div><div class="p">${e.pts}</div>
+        <div class="st"><span>${e.aciertos}/${G.turnos / 2} aciertos</span><span>${e.mechas} mechas</span><span>${e.monas} moñonas</span></div></div>`).join("")}</div>
+      <div><p class="tit">Repaso: lo que aprendimos</p>
+        <div class="repaso"><ol>${G.log.map(l => `<li><span class="m ${l.ok ? "si" : "nn"}" aria-label="${l.ok ? "Acertó" : "Falló"}">${l.ok ? "✓" : "✗"}</span>
+          <div><div class="rq">${esc(l.q.q)}</div><div class="ra">${esc(l.q.ops[l.q.a])} · ${esc(G.eq[l.eq].nombre)} · ${esc(nombreTiro(l.tiro))} · Diap. ${l.q.ref}</div></div></li>`).join("")}</ol></div></div>
+      <div class="botones"><button class="boton verde" id="btnRevancha" type="button">¡REVANCHA!</button><button class="boton sec" id="btnOtra" type="button">Nuevos equipos</button></div>
+    </div></div>`;
+  $("#capaFin").hidden = false;
+  $("#btnRevancha").addEventListener("click", () => { $("#capaFin").hidden = true; SFX.fanfarria(); nuevaPartida(G.eq[0].nombre, G.eq[1].nombre, G.turnos, G.tiempo); });
+  $("#btnOtra").addEventListener("click", abrirInicio);
+  confeti(); SFX.fanfarria(); setTimeout(() => SFX.publico(1.3), 400);
+}
+
+$("#btnJugar").focus({ preventScroll: true });
+})();
+</script>
